@@ -856,7 +856,7 @@ namespace nodetool
     bool res = m_net_server.connect(epee::string_tools::get_ip_string_from_int32(na.ip),
       epee::string_tools::num_to_string_fast(na.port),
       m_config.m_net_config.connection_timeout,
-      con);
+      con, m_bind_ip.empty() ? "0.0.0.0" : m_bind_ip);
 
     if(!res)
     {
@@ -1335,7 +1335,7 @@ namespace nodetool
         return false;
       }
       return true;
-    });
+    }, m_bind_ip.empty() ? "0.0.0.0" : m_bind_ip);
     if(!r)
     {
       LOG_ERROR("Failed to call connect_async, network error.");
