@@ -635,18 +635,14 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key &pub,
   }
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki) const
+bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki, bool multisig) const
 {
   if (!cryptonote::generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
     return false;
-  if (m_multisig)
+  if (multisig)
   {
     // we got the ephemeral keypair, but the key image isn't right as it's done as per our private spend key, which is multisig
-    rct::key sec, HsaR = rct::hash_to_scalar(rct::scalarmultKey(rct::pk2rct(tx_public_key), rct::sk2rct(ack.m_view_secret_key)));
-    sc_reduce32(HsaR.bytes);
-    sc_add(sec.bytes, HsaR.bytes, (const uint8_t*)ack.m_spend_secret_key.data);
-    sc_reduce32(HsaR.bytes);
-    crypto::generate_key_image(in_ephemeral.pub, rct::rct2sk(sec), ki);
+    crypto::generate_key_image(in_ephemeral.pub, rct::rct2sk(ack.m_spend_secret_key), ki);
   }
   return true;
 }
@@ -5774,7 +5770,7 @@ std::vector<tools::wallet2::multisig_info> wallet2::export_multisig() const
     crypto::key_image ki;
     const rct::multisig_kLR kLR = get_multisig_kLR(n);
     // we want to export the partial key image, not the full one, so we can't use td.m_key_image
-    wallet_generate_key_image_helper(get_account().get_keys(), tx_key, td.m_internal_output_index, in_ephemeral, ki);
+    wallet_generate_key_image_helper(get_account().get_keys(), tx_key, td.m_internal_output_index, in_ephemeral, ki, true);
     info[n] = multisig_info({ki, kLR.L, kLR.R});
   }
 
