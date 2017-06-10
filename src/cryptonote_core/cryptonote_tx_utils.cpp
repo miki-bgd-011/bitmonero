@@ -403,7 +403,6 @@ namespace cryptonote
         {
           kLR.push_back(sources[i].multisig_kLR);
           msout->push_back(rct::multisig_out());
-          msout->back().xx = ctkey.dest;
         }
       }
       for (size_t i = 0; i < tx.vout.size(); ++i)

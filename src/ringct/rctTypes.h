@@ -112,7 +112,6 @@ namespace rct {
     };
 
     struct multisig_out {
-        key xx;
         key c;
     };
 

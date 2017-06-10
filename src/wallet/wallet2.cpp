@@ -635,14 +635,14 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::public_key &pub,
   }
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki, bool multisig) const
+bool wallet2::wallet_generate_key_image_helper(const cryptonote::account_keys& ack, const crypto::public_key& tx_public_key, size_t real_output_index, cryptonote::keypair& in_ephemeral, crypto::key_image& ki, bool multisig_export) const
 {
   if (!cryptonote::generate_key_image_helper(ack, tx_public_key, real_output_index, in_ephemeral, ki))
     return false;
-  if (multisig)
+  if (multisig_export)
   {
     // we got the ephemeral keypair, but the key image isn't right as it's done as per our private spend key, which is multisig
-    crypto::generate_key_image(in_ephemeral.pub, rct::rct2sk(ack.m_spend_secret_key), ki);
+    crypto::generate_key_image(in_ephemeral.pub, ack.m_spend_secret_key, ki);
   }
   return true;
 }
@@ -3683,7 +3683,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, const std::string 
     std::vector<unsigned int> indices;
     for (const auto &source: sd.sources)
       indices.push_back(source.real_output);
-    THROW_WALLET_EXCEPTION_IF(!rct::signMultisig(ptx.tx.rct_signatures, indices, k, ptx.msout),
+    THROW_WALLET_EXCEPTION_IF(!rct::signMultisig(ptx.tx.rct_signatures, indices, k, ptx.msout, rct::sk2rct(get_account().get_keys().m_spend_secret_key)),
         error::wallet_internal_error, "Failed signing, transaction likely malformed");
 
     const bool is_last = exported_txs.m_signers.size() + 1 >= m_multisig_threshold;

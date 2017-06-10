@@ -135,7 +135,7 @@ namespace rct {
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key & mask);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i);
 
-    bool signMultisig(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const std::vector<multisig_out> &msout);
+    bool signMultisig(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const std::vector<multisig_out> &msout, const key &secret_key);
 }
 #endif  /* RCTSIGS_H */
 

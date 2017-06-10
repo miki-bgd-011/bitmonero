@@ -955,7 +955,7 @@ namespace rct {
       return decodeRctSimple(rv, sk, i, mask);
     }
 
-    bool signMultisig(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const std::vector<multisig_out> &msout) {
+    bool signMultisig(rctSig &rv, const std::vector<unsigned int> &indices, const keyV &k, const std::vector<multisig_out> &msout, const key &secret_key) {
         CHECK_AND_ASSERT_MES(rv.type == RCTTypeFull || rv.type == RCTTypeSimple, false, "unsupported rct type");
         CHECK_AND_ASSERT_MES(indices.size() == k.size(), false, "Mismatched k/indices sizes");
         CHECK_AND_ASSERT_MES(k.size() == rv.p.MGs.size(), false, "Mismatched k/MGs size");
@@ -971,7 +971,7 @@ namespace rct {
 
         for (size_t n = 0; n < indices.size(); ++n) {
             rct::key diff;
-            sc_mulsub(diff.bytes, msout[n].c.bytes, msout[n].xx.bytes, k[n].bytes);
+            sc_mulsub(diff.bytes, msout[n].c.bytes, secret_key.bytes, k[n].bytes);
             sc_add(rv.p.MGs[n].ss[indices[n]][0].bytes, rv.p.MGs[n].ss[indices[n]][0].bytes, diff.bytes);
         }
         return true;

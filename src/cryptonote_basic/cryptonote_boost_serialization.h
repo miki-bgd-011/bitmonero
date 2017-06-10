@@ -241,7 +241,6 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, rct::multisig_out &x, const boost::serialization::version_type ver)
   {
-    a & x.xx;
     a & x.c;
   }
 
