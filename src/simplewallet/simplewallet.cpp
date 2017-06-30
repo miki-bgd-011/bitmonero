@@ -115,7 +115,7 @@ namespace
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_view_key = {"generate-from-view-key", sw::tr("Generate incoming-only wallet from view key"), ""};
-  const command_line::arg_descriptor<std::string> arg_generate_from_keys = {"generate-from-keys", sw::tr("Generate wallet from private keys"), ""};
+  const command_line::arg_descriptor<std::string> arg_generate_from_keys = {"generate-from-keys", sw::tr("Generate wallet from private keys (argument of the form M/N with M <= N and M > 1)"), ""};
   const auto arg_generate_from_json = wallet_args::arg_generate_from_json();
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
@@ -947,6 +947,59 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::generate_multisig(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  uint32_t threshold, total;
+  if (args.size() != 2)
+  {
+    fail_msg_writer() << "usage: generate_multisig M/N basename";
+    return false;
+  }
+  if (sscanf(args[0].c_str(), "%u/%u", &threshold, &total) != 2)
+  {
+    fail_msg_writer() << "Error: expected N/M, but got: " << args[0];
+    return false;
+  }
+  if (threshold <= 1 || threshold > total)
+  {
+    fail_msg_writer() << "Error: expected N > 1 and N <= M, but got: " << args[0];
+    return false;
+  }
+
+  message_writer() << "Generating " << total << " " << threshold << "/" << total << " multisig wallets";
+
+  const auto pwd_container = tools::wallet2::password_prompt(true);
+
+  // create M wallets first
+  std::vector<tools::wallet2> wallets(total);
+  for (size_t n = 0; n < total; ++n)
+  {
+    std::string basename = args[1] + "-" + std::to_string(n + 1);
+    wallets[n].init("");
+    wallets[n].generate(basename, pwd_container->password(), rct::rct2sk(rct::skGen()), true, false);
+  }
+
+  // gather the keys
+  std::vector<crypto::secret_key> sk(total);
+  std::vector<crypto::public_key> pk(total);
+  for (size_t n = 0; n < total; ++n)
+  {
+    wallets[n].verify_multisig_info(wallets[n].get_multisig_info(), sk[n], pk[n]);
+  }
+
+  // make the wallets multisig
+  std::stringstream ss;
+  for (size_t n = 0; n < total; ++n)
+  {
+    std::string basename = args[1] + "-" + std::to_string(n + 1);
+    wallets[n].make_multisig(basename, sk, pk, threshold);
+    ss << basename;
+  }
+  success_msg_writer() << "Generated multisig wallets: " << ss.str();
+
+  return true;
+}
+
 bool simple_wallet::set_always_confirm_transfers(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   const auto pwd_container = get_and_verify_password();
@@ -1273,6 +1326,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("import_multisig", boost::bind(&simple_wallet::import_multisig, this, _1), tr("Import multisig info from other participants"));
   m_cmd_binder.set_handler("sign_multisig", boost::bind(&simple_wallet::sign_multisig, this, _1), tr("Sign a multisig transaction from a file"));
   m_cmd_binder.set_handler("submit_multisig", boost::bind(&simple_wallet::submit_multisig, this, _1), tr("Submit a signed multisig transaction from a file"));
+  m_cmd_binder.set_handler("generate_multisig", boost::bind(&simple_wallet::generate_multisig, this, _1), tr("Generate a set of multisig wallets"));
   m_cmd_binder.set_handler("help", boost::bind(&simple_wallet::help, this, _1), tr("Show this help"));
 }
 //----------------------------------------------------------------------------------------------------
@@ -1469,7 +1523,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     fail_msg_writer() << tr("can't specify more than one of --generate-new-wallet=\"wallet_name\", --wallet-file=\"wallet_name\", --generate-from-view-key=\"wallet_name\", --generate-from-json=\"jsonfilename\" and --generate-from-keys=\"wallet_name\"");
     return false;
   }
-  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_keys.empty() && m_generate_from_json.empty())
+  else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_view_key.empty() && m_generate_from_keys.empty() && m_generate_from_json.empty() && (get_arg(vm, arg_command).empty() || get_arg(vm, arg_command)[0] != "generate_multisig"))
   {
     if(!ask_wallet_create_if_needed()) return false;
   }
