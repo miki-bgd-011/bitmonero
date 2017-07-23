@@ -904,7 +904,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_rct = false;
             }
 	    set_unspent(m_transfers.size()-1);
-	    m_key_images[td.m_key_image] = m_transfers.size()-1;
+            if (!m_multisig)
+	      m_key_images[td.m_key_image] = m_transfers.size()-1;
 	    m_pub_keys[in_ephemeral[o].pub] = m_transfers.size()-1;
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (0 != m_callback)
@@ -5886,18 +5887,6 @@ size_t wallet2::import_multisig(const std::vector<std::vector<tools::wallet2::mu
     if (pi.size() < n_outputs)
       n_outputs = pi.size();
 
-  // first pass to determine where to detach the blockchain
-  for (size_t n = 0; n < n_outputs; ++n)
-  {
-    transfer_details &td = m_transfers[n];
-    if (!td.m_key_image_partial)
-      continue;
-    MINFO("Multisig info importing from block height " << td.m_block_height);
-    detach_blockchain(td.m_block_height);
-    refresh();
-    break;
-  }
-
   for (size_t n = 0; n < n_outputs; ++n)
   {
     transfer_details &td = m_transfers[n];
@@ -5906,9 +5895,11 @@ size_t wallet2::import_multisig(const std::vector<std::vector<tools::wallet2::mu
     {
       td.m_multisig_info.push_back(pi[n]);
     }
+    m_key_images.erase(td.m_key_image);
     td.m_key_image = rct::rct2ki(get_multisig_composite_LRki(n, rct::skGen()).ki);
     td.m_key_image_known = true;
     td.m_key_image_partial = false;
+    m_key_images[td.m_key_image] = n;
   }
 
   return n_outputs;
